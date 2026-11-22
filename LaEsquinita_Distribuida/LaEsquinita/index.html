@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#059669">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="La Esquinita">
+  <title>La Esquinita — POS</title>
+  <link rel="manifest" href="./pwa/manifest.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body class="min-h-full bg-slate-950 text-slate-100">
+  <header class="sticky top-0 z-30 flex items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 py-3">
+    <div class="flex items-center gap-3">
+      <div class="rounded-xl bg-emerald-600 p-2"><i data-lucide="store"></i></div>
+      <div><h1 class="font-bold">La Esquinita App <span class="text-xs text-emerald-400">PWA</span></h1><p id="network-status" class="text-xs text-emerald-400">Conectando…</p></div>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn-primary" data-action="open-pos"><i data-lucide="shopping-cart"></i> Caja POS</button>
+      <button class="btn-secondary" data-action="open-terminal"><i data-lucide="terminal"></i></button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <nav class="grid gap-2">
+        <button class="nav-btn active" data-tab="dashboard"><i data-lucide="layout-dashboard"></i> Resumen de hoy</button>
+        <button class="nav-btn" data-tab="inventory"><i data-lucide="package"></i> Abarrotes / Stock</button>
+        <button class="nav-btn" data-tab="fiados"><i data-lucide="notebook-pen"></i> Cuaderno Fiados</button>
+        <button class="nav-btn" data-tab="suppliers"><i data-lucide="truck"></i> Proveedores</button>
+        <button class="nav-btn" data-tab="iaas"><i data-lucide="cloud"></i> Nube IaaS</button>
+      </nav>
+      <div class="mt-auto rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400">
+        <p class="font-semibold text-emerald-400">Modo híbrido activo</p>
+        <p>Guardado local + sincronización con PostgreSQL mediante API.</p>
+        <p id="pending-count" class="mt-2">Cambios pendientes: 0</p>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <section id="tab-dashboard" class="tab-panel">
+        <div class="stats-grid">
+          <article class="stat-card"><p>Valor mercancía</p><strong id="dash-inv-value">$0</strong><small id="dash-inv-count">0 productos</small></article>
+          <article class="stat-card"><p>Fiados por cobrar</p><strong id="dash-receivables">$0</strong><small id="dash-debtors-count">0 clientes</small></article>
+          <article class="stat-card"><p>Deuda proveedores</p><strong id="dash-payables">$0</strong><small>Facturas pendientes</small></article>
+          <article class="stat-card"><p>Stock bajo</p><strong id="dash-low-stock">0</strong><small>Productos por surtir</small></article>
+        </div>
+        <div class="quick-actions">
+          <button class="btn-primary" data-action="open-pos">Vender / Caja</button>
+          <button class="btn-warning" data-action="open-fiado">Anotar fiado</button>
+          <button class="btn-secondary" data-action="open-abono">Recibir abono</button>
+          <button class="btn-secondary" data-action="open-product">Nuevo producto</button>
+        </div>
+        <div class="panel mt-4"><h2>Alerta de mercancía baja</h2><div id="low-stock-list" class="divide-y divide-slate-800"></div></div>
+        <div class="charts-grid mt-4">
+          <div class="panel"><h2>Comportamiento de fiados</h2><div class="chart-wrap"><canvas id="weeklyChart"></canvas></div></div>
+          <div class="panel"><h2>Inventario por categoría</h2><div class="chart-wrap"><canvas id="categoryChart"></canvas></div></div>
+        </div>
+      </section>
+
+      <section id="tab-inventory" class="tab-panel hidden">
+        <div class="panel mb-4 flex flex-wrap gap-2">
+          <input id="inventory-search" class="field flex-1" placeholder="Buscar producto…">
+          <select id="inventory-category-filter" class="field"><option value="ALL">Todas las categorías</option><option>Abarrotes</option><option>Bebidas</option><option>Lácteos</option><option>Panadería</option><option>Aseo</option><option>Snacks</option></select>
+          <button class="btn-primary" data-action="open-product">Nuevo producto</button>
+        </div>
+        <div class="panel overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>Producto</th><th>Categoría</th><th class="text-right">Precio</th><th>Stock</th><th class="text-right">Valor</th><th>Acciones</th></tr></thead><tbody id="inventory-table-body"></tbody></table></div>
+      </section>
+
+      <section id="tab-fiados" class="tab-panel hidden">
+        <div class="panel mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2>Cuaderno de fiados</h2><p class="muted">Deudas de vecinos y clientes.</p></div><div class="flex gap-2"><button class="btn-secondary" data-action="open-abono">Abonar</button><button class="btn-warning" data-action="open-fiado">Nuevo fiado</button></div></div>
+        <div id="fiados-cards-container" class="cards-grid"></div>
+      </section>
+
+      <section id="tab-suppliers" class="tab-panel hidden">
+        <div class="panel mb-4 flex items-center justify-between"><div><h2>Cuentas de proveedores</h2><p class="muted">Facturas pendientes.</p></div><button class="btn-primary" data-action="open-supplier">Nueva factura</button></div>
+        <div id="suppliers-cards-container" class="cards-grid"></div>
+      </section>
+
+      <section id="tab-iaas" class="tab-panel hidden">
+        <div class="panel"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2>Infraestructura y sincronización</h2><p class="muted">API central y persistencia local offline.</p></div><button class="btn-primary" data-action="sync">Sincronizar ahora</button></div></div>
+        <div class="panel mt-4"><h2>Registro del sistema</h2><div id="iaas-logs-box" class="terminal-log">Aplicación iniciada.</div></div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav">
+    <button data-tab="dashboard">Inicio</button><button data-tab="inventory">Stock</button><button data-action="open-pos">Vender</button><button data-tab="fiados">Fiados</button><button data-tab="suppliers">Proveedores</button>
+  </nav>
+
+  <!-- Modal POS -->
+  <dialog id="pos-modal" class="modal"><form method="dialog" class="modal-card wide">
+    <div class="modal-head"><h2>Caja rápida POS</h2><button class="close-btn">✕</button></div>
+    <div class="pos-layout"><div><input id="pos-search" class="field w-full mb-3" placeholder="Buscar producto…"><div id="pos-product-grid" class="product-grid"></div></div><div class="cart-panel"><h3>Carrito</h3><div id="pos-cart-items"></div><p class="cart-total">Total: <strong id="pos-cart-total">$0</strong></p><div class="flex gap-2"><button type="button" class="btn-primary flex-1" data-action="checkout-cash">Contado</button><button type="button" class="btn-warning flex-1" data-action="checkout-credit">Fiado</button></div></div></div>
+  </form></dialog>
+
+  <!-- Formularios -->
+  <dialog id="product-modal" class="modal"><form id="product-form" class="modal-card">
+    <div class="modal-head"><h2 id="product-modal-title">Guardar producto</h2><button type="button" class="close-btn" data-close="product-modal">✕</button></div>
+    <input type="hidden" id="prod-id"><label>Nombre<input id="prod-name" class="field" required></label>
+    <label>Categoría<select id="prod-category" class="field"><option>Abarrotes</option><option>Bebidas</option><option>Lácteos</option><option>Panadería</option><option>Aseo</option><option>Snacks</option></select></label>
+    <div class="form-grid"><label>Precio<input id="prod-price" type="number" min="0" class="field" required></label><label>Cantidad<input id="prod-stock" type="number" min="0" class="field" required></label><label>Mínimo<input id="prod-min" type="number" min="0" value="5" class="field" required></label></div>
+    <button class="btn-primary w-full mt-4">Guardar</button>
+  </form></dialog>
+
+  <dialog id="fiado-modal" class="modal"><form id="fiado-form" class="modal-card">
+    <div class="modal-head"><h2>Nuevo fiado</h2><button type="button" class="close-btn" data-close="fiado-modal">✕</button></div>
+    <label>Cliente<input id="fiado-neighbor" class="field" required></label><label>Teléfono<input id="fiado-phone" class="field" required></label><label>Detalle<input id="fiado-detail" class="field" required></label><label>Valor<input id="fiado-amount" type="number" min="1" class="field" required></label><button class="btn-warning w-full mt-4">Guardar fiado</button>
+  </form></dialog>
+
+  <dialog id="abono-modal" class="modal"><form id="abono-form" class="modal-card">
+    <div class="modal-head"><h2>Registrar abono</h2><button type="button" class="close-btn" data-close="abono-modal">✕</button></div>
+    <label>Cliente<select id="abono-neighbor-select" class="field"></select></label><label>Valor<input id="abono-amount" type="number" min="1" class="field" required></label><button class="btn-primary w-full mt-4">Registrar abono</button>
+  </form></dialog>
+
+  <dialog id="supplier-modal" class="modal"><form id="supplier-form" class="modal-card">
+    <div class="modal-head"><h2>Nueva factura</h2><button type="button" class="close-btn" data-close="supplier-modal">✕</button></div>
+    <label>Proveedor<input id="sup-name" class="field" required></label><label>Detalle<input id="sup-detail" class="field" required></label><div class="form-grid"><label>Monto<input id="sup-amount" type="number" min="1" class="field" required></label><label>Día de pago<input id="sup-day" value="Viernes" class="field"></label></div><button class="btn-primary w-full mt-4">Guardar</button>
+  </form></dialog>
+
+  <dialog id="terminal-modal" class="modal"><div class="modal-card wide"><div class="modal-head"><h2>La Esquinita Shell (simulada)</h2><button class="close-btn" data-close="terminal-modal">✕</button></div><div id="terminal-output" class="terminal-log">Escribe help, stock, fiados, sync o clear.</div><input id="terminal-input" class="field mt-2" placeholder="Comando y Enter"></div></dialog>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

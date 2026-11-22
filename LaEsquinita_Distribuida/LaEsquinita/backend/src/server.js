@@ -1,0 +1,17 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import resources from './routes/resources.js';
+import {notFound,errorHandler} from './middleware/errors.js';
+dotenv.config();
+const app=express();
+app.use(helmet());
+app.use(cors({origin:process.env.FRONTEND_ORIGIN?.split(',')||true}));
+app.use(express.json({limit:'1mb'}));
+app.get('/api/health',(req,res)=>res.json({status:'ok',service:'la-esquinita-api',time:new Date().toISOString()}));
+app.use('/api',resources);
+app.use(notFound);
+app.use(errorHandler);
+const port=Number(process.env.PORT||3000);
+app.listen(port,()=>console.log(`La Esquinita API escuchando en http://localhost:${port}`));

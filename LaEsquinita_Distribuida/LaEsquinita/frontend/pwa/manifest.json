@@ -1,0 +1,10 @@
+{
+  "name": "La Esquinita App",
+  "short_name": "La Esquinita",
+  "start_url": "../index.html",
+  "scope": "../",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#059669",
+  "description": "Punto de venta e inventario de La Esquinita"
+}
